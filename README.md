@@ -1,8 +1,25 @@
 # Off-Ball Analytics Platform
 
-Repository-first football analytics platform for professional football clubs. Off-Ball transforms football event, match-state, possession, opportunity, tracking, space-creation, pressing, and attribution data into governed KPIs, analytics marts, and decision-ready Power BI dashboards.
+Modern football analytics is strongly shaped by on-ball events because event datasets are widely available, structured, and relatively straightforward to count. That focus is valuable, but it leaves a large part of football performance difficult to observe consistently.
 
-The platform follows the Databricks Sports & Entertainment MVM methodology and uses a Medallion Architecture across Bronze, Silver, and Gold layers.
+Players typically have possession of the ball for only a small fraction of a 90-minute match—often estimated by scouts and analysts at approximately three to five minutes. For the rest of the match, they move, position themselves, create space, press, support teammates, manage defensive distances, and influence play without touching the ball. Much of that value is therefore expressed through actions that traditional statistics do not adequately capture.
+
+Off-Ball exists to make those behaviors more observable, measurable, and actionable. It provides a repository-first football analytics platform for professional clubs, combining football truth, opportunities, space creation, pressing, attribution, governed KPIs, analytics marts, and Power BI decision-support products.
+
+## Why Off-Ball Analytics Matters
+
+Space creation, positioning, movement, pressing, support, and defensive organization are not isolated concepts: they shape the options available to teammates, the pressure applied to opponents, and the quality of subsequent football actions. Opportunity modeling helps distinguish situations in which a player could influence play from situations in which an action was actually observed. Attribution helps connect shared team outcomes to individual contributions without reducing complex football behavior to a single unqualified number.
+
+Better off-ball intelligence can help:
+
+- **Clubs** evaluate performance across more of the match, not only recorded touches and events.
+- **Scouts and recruitment teams** compare players using role- and opportunity-aware evidence.
+- **Coaches** identify how teams create space, support attacks, press, recover possession, and defend collectively.
+- **Analysts** investigate match patterns with explicit coverage, confidence, sample-size, and lineage context.
+
+The platform does not replace professional judgment. Its purpose is to provide a more complete and explainable evidence base for football decisions.
+
+Technically, the platform follows the Databricks Sports & Entertainment MVM methodology and uses a Medallion Architecture across Bronze, Silver, and Gold layers.
 
 ## 1. Project Overview
 
