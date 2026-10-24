@@ -1,0 +1,274 @@
+/*
+  Off-Ball governed measures.
+  Tables use Power BI aliases for the corresponding Unity Catalog Gold products.
+  All rate measures preserve numerator and denominator semantics.
+*/
+
+-- Publication and data trust
+Published Rows :=
+CALCULATE(
+    COUNTROWS('FactMetricValue'),
+    'FactMetricValue'[publication_status] = "published"
+)
+
+Insufficient Sample Rows :=
+CALCULATE(
+    COUNTROWS('FactMetricValue'),
+    'FactMetricValue'[quality_status] = "insufficient_sample"
+)
+
+Published Refresh :=
+MAX('FactMetricValue'[refreshed_at])
+
+Data Freshness Hours :=
+VAR LastRefresh = [Published Refresh]
+RETURN
+IF(
+    ISBLANK(LastRefresh),
+    BLANK(),
+    DIVIDE(DATEDIFF(LastRefresh, UTCNOW(), MINUTE), 60.0)
+)
+
+-- Generic governed KPI measures
+KPI Numerator :=
+SUM('FactMetricValue'[numerator])
+
+KPI Denominator :=
+SUM('FactMetricValue'[denominator])
+
+KPI Value :=
+VAR DenominatorValue = [KPI Denominator]
+RETURN
+IF(DenominatorValue = 0, BLANK(), DIVIDE([KPI Numerator], DenominatorValue))
+
+KPI Coverage :=
+AVERAGEX(
+    FILTER('FactMetricValue', NOT ISBLANK('FactMetricValue'[coverage_ratio])),
+    'FactMetricValue'[coverage_ratio]
+)
+
+KPI Confidence :=
+AVERAGEX(
+    FILTER('FactMetricValue', NOT ISBLANK('FactMetricValue'[confidence])),
+    'FactMetricValue'[confidence]
+)
+
+-- Match and participation
+Fixtures :=
+DISTINCTCOUNT('DimFixture'[fixture_id])
+
+Completed Fixtures :=
+CALCULATE(
+    [Fixtures],
+    'FactMatch'[quality_status] IN {"valid", "valid_with_warning", "published"}
+)
+
+Athlete Appearances :=
+DISTINCTCOUNT('FactMatchParticipant'[participant_id])
+
+Participation Minutes :=
+SUM('FactMatchParticipant'[participation_minutes])
+
+Participation Minutes per 90 :=
+DIVIDE([Participation Minutes], 90.0)
+
+-- Space creation
+Eligible Space Opportunities :=
+SUM('FactSpaceOpportunity'[eligible_flag])
+
+Observed Space Opportunities :=
+SUM('FactSpaceOpportunity'[observed_flag])
+
+Successful Space Outcomes :=
+SUM('FactSpaceOpportunity'[successful_flag])
+
+Space Observation Rate :=
+DIVIDE([Observed Space Opportunities], [Eligible Space Opportunities])
+
+Space Conversion Rate :=
+DIVIDE([Successful Space Outcomes], [Observed Space Opportunities])
+
+Space Expected Value Delta :=
+SUM('FactSpaceOpportunity'[expected_value_delta])
+
+Space Baseline Coverage :=
+DIVIDE(
+    SUM('FactSpaceOpportunity'[baseline_available_flag]),
+    [Eligible Space Opportunities]
+)
+
+Space Counterfactual Coverage :=
+DIVIDE(
+    SUM('FactSpaceOpportunity'[counterfactual_available_flag]),
+    [Eligible Space Opportunities]
+)
+
+Space Tracking Coverage :=
+DIVIDE(
+    SUM('FactSpaceOpportunity'[tracking_observed_flag]),
+    [Eligible Space Opportunities]
+)
+
+Confidence Weighted Space Success :=
+DIVIDE(
+    SUMX(
+        'FactSpaceOpportunity',
+        'FactSpaceOpportunity'[successful_flag]
+            * 'FactSpaceOpportunity'[confidence]
+    ),
+    [Observed Space Opportunities]
+)
+
+-- Pressing
+Pressing Opportunities :=
+SUM('FactPressOpportunity'[opportunity_flag])
+
+Triggered Presses :=
+SUM('FactPressOpportunity'[triggered_flag])
+
+Completed Press Actions :=
+SUM('FactPressOpportunity'[action_completed_flag])
+
+Press Action Completion Rate :=
+DIVIDE([Completed Press Actions], [Triggered Presses])
+
+Supported Presses :=
+SUM('FactPressOpportunity'[support_flag])
+
+Press Support Rate :=
+DIVIDE([Supported Presses], [Triggered Presses])
+
+Press Bypasses :=
+SUM('FactPressOpportunity'[bypass_flag])
+
+Press Bypass Rate :=
+DIVIDE([Press Bypasses], [Triggered Presses])
+
+Press Recoveries :=
+SUM('FactPressOpportunity'[recovery_flag])
+
+Press Recovery Rate :=
+DIVIDE([Press Recoveries], [Pressing Opportunities])
+
+Positive Press Outcomes :=
+SUM('FactPressOpportunity'[positive_outcome_flag])
+
+Positive Press Outcome Rate :=
+DIVIDE([Positive Press Outcomes], [Pressing Opportunities])
+
+Average Press Time to Action :=
+AVERAGEX(
+    FILTER(
+        'FactPressOpportunity',
+        NOT ISBLANK('FactPressOpportunity'[time_to_action_seconds])
+    ),
+    'FactPressOpportunity'[time_to_action_seconds]
+)
+
+-- Attribution
+Attribution Share :=
+SUM('FactAttributionTeam'[attribution_share])
+
+Mean Attribution Share :=
+AVERAGEX(
+    FILTER(
+        'FactAttributionTeam',
+        NOT ISBLANK('FactAttributionTeam'[attribution_share])
+    ),
+    'FactAttributionTeam'[attribution_share]
+)
+
+Evidence Linked Attribution Rate :=
+DIVIDE(
+    SUM('FactAttributionTeam'[evidence_linked_flag]),
+    COUNTROWS('FactAttributionTeam')
+)
+
+Unresolved Attribution Count :=
+CALCULATE(
+    COUNTROWS('FactAttributionTeam'),
+    'FactAttributionTeam'[evidence_status] = "unresolved"
+)
+
+-- Team and player normalization
+Team Events per 90 :=
+DIVIDE(
+    SUM('FactTeamWindow'[event_count]) * 90.0,
+    SUM('FactTeamWindow'[participation_minutes])
+)
+
+Player Events per 90 :=
+DIVIDE(
+    SUM('FactMatchParticipant'[event_count]) * 90.0,
+    [Participation Minutes]
+)
+
+Player Space Success per Opportunity :=
+DIVIDE(
+    [Successful Space Outcomes],
+    [Observed Space Opportunities]
+)
+
+Player Press Recoveries per 90 :=
+DIVIDE(
+    [Press Recoveries] * 90.0,
+    [Participation Minutes]
+)
+
+-- Executive outcome measures
+Wins :=
+CALCULATE(
+    COUNTROWS('FactMatch'),
+    'FactMatch'[result_state] = "win"
+)
+
+Draws :=
+CALCULATE(
+    COUNTROWS('FactMatch'),
+    'FactMatch'[result_state] = "draw"
+)
+
+Losses :=
+CALCULATE(
+    COUNTROWS('FactMatch'),
+    'FactMatch'[result_state] = "loss"
+)
+
+Points :=
+([Wins] * 3) + [Draws]
+
+Points per Match :=
+DIVIDE([Points], [Fixtures])
+
+Goals For :=
+SUM('FactMatch'[goals_for])
+
+Goals Against :=
+SUM('FactMatch'[goals_against])
+
+Goal Difference :=
+[Goals For] - [Goals Against]
+
+-- Quality and suppression
+Quality Warning Rows :=
+CALCULATE(
+    COUNTROWS('FactMetricValue'),
+    'FactMetricValue'[quality_status] = "published_with_warning"
+)
+
+Suppressed Rows :=
+CALCULATE(
+    COUNTROWS('FactMetricValue'),
+    'FactMetricValue'[quality_status] = "suppressed"
+)
+
+Data Coverage Status :=
+VAR Coverage = [KPI Coverage]
+RETURN
+SWITCH(
+    TRUE(),
+    ISBLANK(Coverage), "Not available",
+    Coverage < 0.50, "Low coverage",
+    Coverage < 0.80, "Partial coverage",
+    "Good coverage"
+)

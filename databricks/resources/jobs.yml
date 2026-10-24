@@ -1,0 +1,593 @@
+resources:
+  jobs:
+    offball_s1_register_snapshot:
+      name: "[${bundle.target}] Off-Ball S1 Register source snapshot"
+      description: "Registers a source delivery before Bronze ingestion."
+      max_concurrent_runs: 1
+      timeout_seconds: 1800
+      tags:
+        system: offball
+        sprint: "1"
+        layer: bronze
+        purpose: snapshot
+      job_clusters:
+        - job_cluster_key: snapshot_cluster
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: 2
+      tasks:
+        - task_key: register_snapshot
+          job_cluster_key: snapshot_cluster
+          notebook_task:
+            notebook_path: ${var.notebook_root}/orchestration/90_register_source_snapshot
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              source_delivery_uri: ${var.source_delivery_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_object_name: sprint1_delivery
+              source_version: ${var.source_version}
+              run_mode: ${var.run_mode}
+          max_retries: 2
+          min_retry_interval_millis: 60000
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
+
+    offball_s1_ingest_athlete_bronze:
+      name: "[${bundle.target}] Off-Ball S1 Ingest athlete Bronze"
+      description: "Ingests approved athlete-domain source products into immutable Bronze Delta tables."
+      max_concurrent_runs: 1
+      timeout_seconds: 14400
+      tags:
+        system: offball
+        sprint: "1"
+        layer: bronze
+        domain: athlete
+      job_clusters:
+        - job_cluster_key: athlete_ingestion
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: ${var.max_workers}
+      tasks:
+        - task_key: register_snapshot
+          job_cluster_key: athlete_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/orchestration/90_register_source_snapshot
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              source_delivery_uri: ${var.source_delivery_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_object_name: athlete_delivery
+              source_version: ${var.source_version}
+              run_mode: ${var.run_mode}
+              source_domain: athlete
+          max_retries: 2
+          min_retry_interval_millis: 60000
+        - task_key: ingest_athlete_profile
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: athlete_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/10_ingest_athlete_profile
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_roster
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: athlete_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/11_ingest_roster
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_performance_stat
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: athlete_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/12_ingest_performance_stat
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_contract
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: athlete_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/13_ingest_contract
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_eligibility_status
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: athlete_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/14_ingest_eligibility_status
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: finalize_ingestion
+          depends_on:
+            - task_key: ingest_athlete_profile
+            - task_key: ingest_roster
+            - task_key: ingest_performance_stat
+            - task_key: ingest_contract
+            - task_key: ingest_eligibility_status
+          job_cluster_key: athlete_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/orchestration/91_finalize_ingestion_attempt
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 2
+          min_retry_interval_millis: 60000
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
+
+    offball_s1_ingest_event_bronze:
+      name: "[${bundle.target}] Off-Ball S1 Ingest event Bronze"
+      description: "Ingests approved event-domain source products into immutable Bronze Delta tables."
+      max_concurrent_runs: 1
+      timeout_seconds: 14400
+      tags:
+        system: offball
+        sprint: "1"
+        layer: bronze
+        domain: event
+      job_clusters:
+        - job_cluster_key: event_ingestion
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: ${var.max_workers}
+      tasks:
+        - task_key: register_snapshot
+          job_cluster_key: event_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/orchestration/90_register_source_snapshot
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              source_delivery_uri: ${var.source_delivery_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_object_name: event_delivery
+              source_version: ${var.source_version}
+              run_mode: ${var.run_mode}
+              source_domain: event
+          max_retries: 2
+          min_retry_interval_millis: 60000
+        - task_key: ingest_fixture
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: event_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/20_ingest_fixture
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_competition
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: event_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/21_ingest_competition
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_participant
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: event_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/22_ingest_participant
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_match_result
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: event_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/23_ingest_match_result
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_scoring_event
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: event_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/24_ingest_scoring_event
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_event_incident
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: event_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/25_ingest_event_incident
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: finalize_ingestion
+          depends_on:
+            - task_key: ingest_fixture
+            - task_key: ingest_competition
+            - task_key: ingest_participant
+            - task_key: ingest_match_result
+            - task_key: ingest_scoring_event
+            - task_key: ingest_event_incident
+          job_cluster_key: event_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/orchestration/91_finalize_ingestion_attempt
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 2
+          min_retry_interval_millis: 60000
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
+
+    offball_s1_ingest_tracking_bronze:
+      name: "[${bundle.target}] Off-Ball S1 Ingest tracking Bronze"
+      description: "Ingests licensed tracking frames and tracking quality metadata into Bronze."
+      max_concurrent_runs: 1
+      timeout_seconds: 28800
+      tags:
+        system: offball
+        sprint: "1"
+        layer: bronze
+        domain: tracking
+      job_clusters:
+        - job_cluster_key: tracking_ingestion
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 2
+              max_workers: ${var.tracking_max_workers}
+      tasks:
+        - task_key: register_snapshot
+          job_cluster_key: tracking_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/orchestration/90_register_source_snapshot
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              source_delivery_uri: ${var.source_delivery_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_object_name: tracking_delivery
+              source_version: ${var.source_version}
+              run_mode: ${var.run_mode}
+              source_domain: tracking
+          max_retries: 2
+          min_retry_interval_millis: 60000
+        - task_key: ingest_tracking_frame
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: tracking_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/30_ingest_tracking_frame
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_tracking_quality
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: tracking_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/31_ingest_tracking_quality
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: finalize_ingestion
+          depends_on:
+            - task_key: ingest_tracking_frame
+            - task_key: ingest_tracking_quality
+          job_cluster_key: tracking_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/orchestration/91_finalize_ingestion_attempt
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 2
+          min_retry_interval_millis: 60000
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
+
+    offball_s1_ingest_evidence_annotation_bronze:
+      name: "[${bundle.target}] Off-Ball S1 Ingest evidence and annotation Bronze"
+      description: "Ingests licensed video metadata and scouting annotation deliveries into Bronze."
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+      tags:
+        system: offball
+        sprint: "1"
+        layer: bronze
+        domain: evidence
+      job_clusters:
+        - job_cluster_key: evidence_ingestion
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: 2
+      tasks:
+        - task_key: register_snapshot
+          job_cluster_key: evidence_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/orchestration/90_register_source_snapshot
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              source_delivery_uri: ${var.source_delivery_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_object_name: evidence_annotation_delivery
+              source_version: ${var.source_version}
+              run_mode: ${var.run_mode}
+              source_domain: evidence_annotation
+          max_retries: 2
+          min_retry_interval_millis: 60000
+        - task_key: ingest_video_evidence
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: evidence_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/32_ingest_video_evidence
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: ingest_scouting_annotation
+          depends_on:
+            - task_key: register_snapshot
+          job_cluster_key: evidence_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/33_ingest_scouting_annotation
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              checkpoint_root_uri: ${var.checkpoint_root_uri}
+              schema_registry_root_uri: ${var.schema_registry_root_uri}
+              source_secret_scope: ${var.source_secret_scope}
+              source_system_code: ${var.source_system_code}
+              source_version: ${var.source_version}
+          max_retries: 3
+          min_retry_interval_millis: 60000
+        - task_key: finalize_ingestion
+          depends_on:
+            - task_key: ingest_video_evidence
+            - task_key: ingest_scouting_annotation
+          job_cluster_key: evidence_ingestion
+          notebook_task:
+            notebook_path: ${var.notebook_root}/orchestration/91_finalize_ingestion_attempt
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 2
+          min_retry_interval_millis: 60000
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
+
+    offball_s1_validate_bronze:
+      name: "[${bundle.target}] Off-Ball S1 Validate Bronze"
+      description: "Validates Bronze contracts, table inventory, quarantine behavior, and replay consistency."
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+      tags:
+        system: offball
+        sprint: "1"
+        layer: bronze
+        purpose: validation
+      job_clusters:
+        - job_cluster_key: bronze_validation
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: 2
+      tasks:
+        - task_key: validate_bronze_contracts
+          job_cluster_key: bronze_validation
+          notebook_task:
+            notebook_path: ${var.notebook_root}/validation/95_validate_bronze_contracts
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              table_contract_version: "1.0"
+          max_retries: 1
+        - task_key: validate_bronze_replay
+          job_cluster_key: bronze_validation
+          notebook_task:
+            notebook_path: ${var.notebook_root}/validation/96_validate_bronze_replay
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+          max_retries: 1
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}

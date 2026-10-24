@@ -1,0 +1,23 @@
+resources:
+  schemas:
+    bronze:
+      name: bronze
+      catalog_name: ${resources.catalogs.offball_catalog.name}
+      comment: "Immutable source landing tables for replay, provenance, and auditability."
+      properties:
+        layer: bronze
+        system: offball
+    silver:
+      name: silver
+      catalog_name: ${resources.catalogs.offball_catalog.name}
+      comment: "Conformed repository-aligned and approved analytical Delta tables."
+      properties:
+        layer: silver
+        system: offball
+    gold:
+      name: gold
+      catalog_name: ${resources.catalogs.offball_catalog.name}
+      comment: "Published denormalized metric and analytical data products."
+      properties:
+        layer: gold
+        system: offball

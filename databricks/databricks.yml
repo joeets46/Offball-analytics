@@ -1,0 +1,122 @@
+bundle:
+  name: offball-sprint-2
+
+include:
+  - resources/catalogs.yml
+  - resources/schemas.yml
+  - resources/bronze_tables.yml
+  - resources/jobs.yml
+  - resources/silver_jobs.yml
+  - resources/gold_jobs.yml
+
+sync:
+  include:
+    - notebooks/**
+    - schemas/**
+    - configuration/**
+
+variables:
+  offball_catalog:
+    description: "Unity Catalog catalog for the deployment target."
+    default: offball_dev
+  data_platform_owner:
+    description: "Owning group or service principal for the lakehouse."
+    default: offball-data-platform
+  bronze_root_uri:
+    description: "Immutable Bronze storage root."
+    default: /Volumes/offball_dev/bronze/landing
+  checkpoint_root_uri:
+    description: "Structured Streaming and Auto Loader checkpoint root."
+    default: /Volumes/offball_dev/bronze/_checkpoints
+  schema_registry_root_uri:
+    description: "Source schema and version registry root."
+    default: /Volumes/offball_dev/bronze/_metadata/schema_registry
+  quarantine_root_uri:
+    description: "Bronze quarantine root."
+    default: /Volumes/offball_dev/bronze/_quarantine
+  quality_root_uri:
+    description: "Silver data-quality and reconciliation root."
+    default: /Volumes/offball_dev/silver/_quality
+  gold_root_uri:
+    description: "Gold publication and dashboard-serving root."
+    default: /Volumes/offball_dev/gold
+  source_secret_scope:
+    description: "Secret scope containing provider credentials."
+    default: offball-sources
+  source_system_code:
+    description: "Stable source/provider code used for Bronze provenance."
+    default: configured-provider
+  source_delivery_uri:
+    description: "Actual source delivery URI or immutable delivery identifier."
+    default: /Volumes/offball_dev/bronze/landing/incoming
+  source_version:
+    description: "Source delivery or schema version."
+    default: "1"
+  run_mode:
+    description: "Ingestion execution mode."
+    default: incremental
+  notebook_root:
+    description: "Workspace or synced path containing Sprint 1 notebooks."
+    default: /Workspace/Shared/offball/databricks/notebooks
+  spark_version:
+    description: "Approved Databricks Runtime for Sprint 1 jobs."
+    default: 15.4.x-scala2.12
+  node_type_id:
+    description: "Approved worker node type."
+    default: i3.xlarge
+  driver_node_type_id:
+    description: "Approved driver node type."
+    default: i3.xlarge
+  max_workers:
+    description: "Maximum workers for standard ingestion jobs."
+    default: 4
+  tracking_max_workers:
+    description: "Maximum workers for tracking ingestion."
+    default: 8
+  alert_email:
+    description: "Operational alert recipient."
+    default: offball-data-platform@example.com
+
+targets:
+  dev:
+    mode: development
+    default: true
+    variables:
+      offball_catalog: offball_dev
+      bronze_root_uri: /Volumes/offball_dev/bronze/landing
+      checkpoint_root_uri: /Volumes/offball_dev/bronze/_checkpoints
+      schema_registry_root_uri: /Volumes/offball_dev/bronze/_metadata/schema_registry
+      quarantine_root_uri: /Volumes/offball_dev/bronze/_quarantine
+      quality_root_uri: /Volumes/offball_dev/silver/_quality
+      gold_root_uri: /Volumes/offball_dev/gold
+      source_delivery_uri: /Volumes/offball_dev/bronze/landing/incoming
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+
+  test:
+    mode: development
+    variables:
+      offball_catalog: offball_test
+      bronze_root_uri: /Volumes/offball_test/bronze/landing
+      checkpoint_root_uri: /Volumes/offball_test/bronze/_checkpoints
+      schema_registry_root_uri: /Volumes/offball_test/bronze/_metadata/schema_registry
+      quarantine_root_uri: /Volumes/offball_test/bronze/_quarantine
+      quality_root_uri: /Volumes/offball_test/silver/_quality
+      gold_root_uri: /Volumes/offball_test/gold
+      source_delivery_uri: /Volumes/offball_test/bronze/landing/incoming
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+
+  prod:
+    mode: production
+    variables:
+      offball_catalog: offball_prod
+      bronze_root_uri: /Volumes/offball_prod/bronze/landing
+      checkpoint_root_uri: /Volumes/offball_prod/bronze/_checkpoints
+      schema_registry_root_uri: /Volumes/offball_prod/bronze/_metadata/schema_registry
+      quarantine_root_uri: /Volumes/offball_prod/bronze/_quarantine
+      quality_root_uri: /Volumes/offball_prod/silver/_quality
+      gold_root_uri: /Volumes/offball_prod/gold
+      source_delivery_uri: /Volumes/offball_prod/bronze/landing/incoming
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}

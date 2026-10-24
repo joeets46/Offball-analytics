@@ -1,0 +1,10 @@
+resources:
+  catalogs:
+    offball_catalog:
+      name: ${var.offball_catalog}
+      comment: "Off-Ball football intelligence lakehouse catalog for the current deployment target."
+      isolation_mode: ISOLATED
+      properties:
+        owner: ${var.data_platform_owner}
+        system: offball
+        environment: ${bundle.target}

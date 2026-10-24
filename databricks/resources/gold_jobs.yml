@@ -1,0 +1,227 @@
+resources:
+  jobs:
+    offball_s3_gold_kpi_foundation:
+      name: "[${bundle.target}] Off-Ball S3 Gold KPI foundation"
+      description: "Registers Gold metric definitions and calculation/publication lifecycle records."
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+      tags:
+        system: offball
+        sprint: "3"
+        layer: gold
+        purpose: kpi-foundation
+      job_clusters:
+        - job_cluster_key: gold_foundation
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: ${var.max_workers}
+      tasks:
+        - task_key: register_calculation_run
+          job_cluster_key: gold_foundation
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/05_register_calculation_run
+            base_parameters: &gold_parameters
+              catalog: ${resources.catalogs.offball_catalog.name}
+              silver_schema: ${resources.schemas.silver.name}
+              gold_schema: ${resources.schemas.gold.name}
+              metric_version: "1.0"
+              run_mode: ${var.run_mode}
+              minimum_sample_size: "1"
+          max_retries: 2
+        - task_key: publish_metric_definitions
+          depends_on:
+            - task_key: register_calculation_run
+          job_cluster_key: gold_foundation
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/06_publish_metric_definitions
+            base_parameters: *gold_parameters
+          max_retries: 2
+        - task_key: finalize_metric_publication
+          depends_on:
+            - task_key: publish_metric_definitions
+          job_cluster_key: gold_foundation
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/07_finalize_metric_publication
+            base_parameters: *gold_parameters
+          max_retries: 2
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
+
+    offball_s3_gold_athlete_marts:
+      name: "[${bundle.target}] Off-Ball S3 Gold athlete marts"
+      description: "Publishes repository-aligned athlete and roster Gold metrics."
+      max_concurrent_runs: 1
+      timeout_seconds: 7200
+      tags:
+        system: offball
+        sprint: "3"
+        layer: gold
+        purpose: athlete-marts
+      job_clusters:
+        - job_cluster_key: gold_athlete
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: ${var.max_workers}
+      tasks:
+        - task_key: athlete_profile_metrics
+          job_cluster_key: gold_athlete
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/10_athlete_profile_metrics
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: roster_metrics
+          depends_on:
+            - task_key: athlete_profile_metrics
+          job_cluster_key: gold_athlete
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/11_roster_metrics
+            base_parameters: *gold_parameters
+          max_retries: 3
+
+    offball_s3_gold_team_marts:
+      name: "[${bundle.target}] Off-Ball S3 Gold team marts"
+      description: "Publishes team fixture, performance, space, pressing, and attribution marts."
+      max_concurrent_runs: 1
+      timeout_seconds: 10800
+      tags:
+        system: offball
+        sprint: "3"
+        layer: gold
+        purpose: team-marts
+      job_clusters:
+        - job_cluster_key: gold_team
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: ${var.max_workers}
+      tasks:
+        - task_key: team_match_summary
+          job_cluster_key: gold_team
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/30_team_match_summary
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: team_performance_window
+          depends_on:
+            - task_key: team_match_summary
+          job_cluster_key: gold_team
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/31_team_performance_window
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: team_space_creation
+          depends_on:
+            - task_key: team_performance_window
+          job_cluster_key: gold_team
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/32_team_space_creation_profile
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: team_pressing
+          depends_on:
+            - task_key: team_performance_window
+          job_cluster_key: gold_team
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/33_team_pressing_profile
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: team_attribution
+          depends_on:
+            - task_key: team_space_creation
+            - task_key: team_pressing
+          job_cluster_key: gold_team
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/34_team_attribution_profile
+            base_parameters: *gold_parameters
+          max_retries: 3
+
+    offball_s3_gold_match_marts:
+      name: "[${bundle.target}] Off-Ball S3 Gold match marts"
+      description: "Publishes fixture, participant, result, scoring, incident, and quality marts."
+      max_concurrent_runs: 1
+      timeout_seconds: 10800
+      tags:
+        system: offball
+        sprint: "3"
+        layer: gold
+        purpose: match-marts
+      job_clusters:
+        - job_cluster_key: gold_match
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: ${var.max_workers}
+      tasks:
+        - task_key: match_summary
+          job_cluster_key: gold_match
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/50_match_summary
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: participant_metrics
+          depends_on:
+            - task_key: match_summary
+          job_cluster_key: gold_match
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/51_match_participant_metrics
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: result_metrics
+          depends_on:
+            - task_key: match_summary
+          job_cluster_key: gold_match
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/52_match_result_metrics
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: scoring_metrics
+          depends_on:
+            - task_key: result_metrics
+          job_cluster_key: gold_match
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/53_match_scoring_event_metrics
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: incident_metrics
+          depends_on:
+            - task_key: result_metrics
+          job_cluster_key: gold_match
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/54_match_incident_metrics
+            base_parameters: *gold_parameters
+          max_retries: 3
+        - task_key: analytics_quality
+          depends_on:
+            - task_key: scoring_metrics
+            - task_key: incident_metrics
+          job_cluster_key: gold_match
+          notebook_task:
+            notebook_path: ${var.notebook_root}/gold/55_match_analytics_quality
+            base_parameters: *gold_parameters
+          max_retries: 3
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}

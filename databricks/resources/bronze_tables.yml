@@ -1,0 +1,59 @@
+resources:
+  jobs:
+    offball_s1_bronze_table_bootstrap:
+      name: "[${bundle.target}] Off-Ball S1 Bronze table bootstrap"
+      description: "Creates the approved Sprint 1 Bronze Delta tables and applies the common raw-ingestion contract."
+      max_concurrent_runs: 1
+      timeout_seconds: 3600
+      tags:
+        system: offball
+        sprint: "1"
+        layer: bronze
+        purpose: bootstrap
+      job_clusters:
+        - job_cluster_key: bronze_bootstrap
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: 2
+            spark_conf:
+              spark.databricks.delta.schema.autoMerge.enabled: "false"
+      tasks:
+        - task_key: create_bronze_tables
+          job_cluster_key: bronze_bootstrap
+          notebook_task:
+            notebook_path: ${var.notebook_root}/bronze/00_create_bronze_tables
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              bronze_root_uri: ${var.bronze_root_uri}
+              quarantine_root_uri: ${var.quarantine_root_uri}
+              table_contract_version: "1.0"
+              table_contract_json: >-
+                [
+                  "athlete_profile_raw",
+                  "roster_raw",
+                  "performance_stat_raw",
+                  "contract_raw",
+                  "eligibility_status_raw",
+                  "fixture_raw",
+                  "competition_raw",
+                  "participant_raw",
+                  "match_result_raw",
+                  "scoring_event_raw",
+                  "event_incident_raw",
+                  "tracking_frame_raw",
+                  "tracking_quality_raw",
+                  "video_evidence_raw",
+                  "scouting_annotation_raw"
+                ]
+          max_retries: 2
+          min_retry_interval_millis: 60000
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}

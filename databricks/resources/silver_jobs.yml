@@ -1,0 +1,243 @@
+resources:
+  jobs:
+    offball_s2_silver_conformed_dimensions:
+      name: "[${bundle.target}] Off-Ball S2 Silver conformed dimensions"
+      description: "Conforms approved Bronze athlete and event products into Silver Delta tables."
+      max_concurrent_runs: 1
+      timeout_seconds: 14400
+      tags:
+        system: offball
+        sprint: "2"
+        layer: silver
+        purpose: conformance
+      job_clusters:
+        - job_cluster_key: silver_dimensions
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: ${var.max_workers}
+      tasks:
+        - task_key: create_silver_operational_tables
+          job_cluster_key: silver_dimensions
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/00_silver_runtime_config
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 2
+        - task_key: conform_athlete_profile
+          depends_on:
+            - task_key: create_silver_operational_tables
+          job_cluster_key: silver_dimensions
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/10_conform_athlete_profile
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+        - task_key: conform_fixture
+          depends_on:
+            - task_key: create_silver_operational_tables
+          job_cluster_key: silver_dimensions
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/20_conform_fixture
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+        - task_key: conform_calendar_competition
+          depends_on:
+            - task_key: create_silver_operational_tables
+          job_cluster_key: silver_dimensions
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/21_conform_calendar_competition
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
+
+    offball_s2_silver_football_truth:
+      name: "[${bundle.target}] Off-Ball S2 Silver football truth"
+      description: "Builds approved match period, state, possession, and phase Silver facts."
+      max_concurrent_runs: 1
+      timeout_seconds: 14400
+      tags:
+        system: offball
+        sprint: "2"
+        layer: silver
+        purpose: football-truth
+      job_clusters:
+        - job_cluster_key: silver_truth
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: ${var.max_workers}
+      tasks:
+        - task_key: build_match_period
+          job_cluster_key: silver_truth
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/30_build_match_period
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+        - task_key: build_match_state_interval
+          depends_on:
+            - task_key: build_match_period
+          job_cluster_key: silver_truth
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/31_build_match_state_interval
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+        - task_key: build_possession_sequence
+          depends_on:
+            - task_key: build_match_state_interval
+          job_cluster_key: silver_truth
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/32_build_possession_sequence
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+        - task_key: build_phase_interval
+          depends_on:
+            - task_key: build_possession_sequence
+          job_cluster_key: silver_truth
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/33_build_phase_interval
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
+
+    offball_s2_silver_space_pressing:
+      name: "[${bundle.target}] Off-Ball S2 Silver space and pressing"
+      description: "Builds approved opportunity, space, pressing, and attribution Silver facts."
+      max_concurrent_runs: 1
+      timeout_seconds: 14400
+      tags:
+        system: offball
+        sprint: "2"
+        layer: silver
+        purpose: analytical-facts
+      job_clusters:
+        - job_cluster_key: silver_analytics
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            driver_node_type_id: ${var.driver_node_type_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: PHOTON
+            autoscale:
+              min_workers: 1
+              max_workers: ${var.max_workers}
+      tasks:
+        - task_key: build_opportunity
+          job_cluster_key: silver_analytics
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/34_build_opportunity
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+        - task_key: build_space_facts
+          depends_on:
+            - task_key: build_opportunity
+          job_cluster_key: silver_analytics
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/35_build_space_facts
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+        - task_key: build_pressing_facts
+          depends_on:
+            - task_key: build_opportunity
+          job_cluster_key: silver_analytics
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/36_build_pressing_facts
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+        - task_key: build_attribution_ledger
+          depends_on:
+            - task_key: build_space_facts
+            - task_key: build_pressing_facts
+          job_cluster_key: silver_analytics
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/37_build_attribution_ledger
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 3
+        - task_key: validate_silver_contracts
+          depends_on:
+            - task_key: build_attribution_ledger
+          job_cluster_key: silver_analytics
+          notebook_task:
+            notebook_path: ${var.notebook_root}/silver/95_validate_silver_contracts
+            base_parameters:
+              catalog: ${resources.catalogs.offball_catalog.name}
+              bronze_schema: ${resources.schemas.bronze.name}
+              silver_schema: silver
+              quality_root_uri: ${var.quality_root_uri}
+              run_mode: ${var.run_mode}
+          max_retries: 2
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
