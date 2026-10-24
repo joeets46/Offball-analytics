@@ -1,5 +1,19 @@
 # Off-Ball Analytics Platform
 
+## Live Demo
+
+🌐 Application: http://offball-analytics.vercel.app/
+
+Explore the live Off-Ball Analytics Platform prototype.
+
+Available modules:
+- Executive Dashboard
+- Player Analytics
+- Team Analytics
+- Match Centre
+- Recruitment Hub
+- AI Football Analyst
+
 Modern football analytics is strongly shaped by on-ball events because event datasets are widely available, structured, and relatively straightforward to count. That focus is valuable, but it leaves a large part of football performance difficult to observe consistently.
 
 Players typically have possession of the ball for only a small fraction of a 90-minute match—often estimated by scouts and analysts at approximately three to five minutes. For the rest of the match, they move, position themselves, create space, press, support teammates, manage defensive distances, and influence play without touching the ball. Much of that value is therefore expressed through actions that traditional statistics do not adequately capture.
